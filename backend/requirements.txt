@@ -1,13 +1,9 @@
-fastapi
-uvicorn
-python-multipart
 PyMuPDF
+transformers
+torch
 langchain
 langchain-community
 langchain-huggingface
 qdrant-client
-google-generativeai
 python-dotenv
-transformers
-sentence-transformers
-tiktoken 
+google-generativeai

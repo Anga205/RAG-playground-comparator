@@ -1,1 +1,3 @@
 .venv/
+env.sh
+backend/env.sh
