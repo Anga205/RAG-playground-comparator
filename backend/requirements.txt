@@ -2,3 +2,12 @@ fastapi
 uvicorn
 python-multipart
 PyMuPDF
+langchain
+langchain-community
+langchain-huggingface
+qdrant-client
+google-generativeai
+python-dotenv
+transformers
+sentence-transformers
+tiktoken 
