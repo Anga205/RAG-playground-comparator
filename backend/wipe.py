@@ -12,5 +12,3 @@ def reset_qdrant_collection(collection_name="pdf_chunks"):
         print(f"Collection '{collection_name}' deleted.")
     else:
         print(f"Collection '{collection_name}' does not exist.")
-
-reset_qdrant_collection() 

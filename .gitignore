@@ -1,3 +1,6 @@
 .venv/
 env.sh
 backend/env.sh
+venv/
+uploads_pdf
+sample_*

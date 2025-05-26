@@ -7,3 +7,8 @@ langchain-huggingface
 qdrant-client
 python-dotenv
 google-generativeai
+pillow
+pytesseract
+fastapi
+uvicorn
+python-multipart
