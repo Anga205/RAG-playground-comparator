@@ -11,14 +11,14 @@ def vanilla_rag_pipeline(query_text: str) -> dict[str, str]:
     prompt = f"""You are a helpful assistant. Use the following context to answer the question as accurately as possible. If the question cannot be accurately answered with the given data just say you dont know.\n\nContext:\n{context}\n\nQuestion: {query_text}\n\nAnswer:"""
 
     answer = query_gemini(prompt)
-    return {"chunks": similar_chunks, "answer": answer}
+    return {"answer": answer, "chunks": similar_chunks}
 
 def reranker_pipeline(query_text: str) -> dict[str, str]:
     chunks = vanilla_get_chunks(query_text, top_k=10)
     ranked_chunks = rerank_chunks_with_jina(query_text, chunks)
     prompt = f"""You are a helpful assistant. Use the following context to answer the question as accurately as possible. If the question cannot be accurately answered with the given data just say you dont know.\n\nContext:\n{str(chr(10)*2).join(ranked_chunks)}\n\nQuestion: {query_text}\n\nAnswer:"""
     answer = query_gemini(prompt)
-    return {"chunks": chunks, "ranked_chunks": ranked_chunks, "answer": answer}
+    return {"answer": answer, "chunks": chunks, "ranked_chunks": ranked_chunks}
 
 def self_querying_pipeline(query_text: str, top_k: int = 10) -> dict[str, str]:
     query_embedding = get_self_query_embedding(query_text)
@@ -31,7 +31,7 @@ def self_querying_pipeline(query_text: str, top_k: int = 10) -> dict[str, str]:
     prompt = f"""You are a helpful assistant. Use the following context to answer the question as accurately as possible. If the question cannot be accurately answered with the given data just say you don't know.\n\nContext:\n{context}\n\nQuestion: {query_text}\n\nAnswer:"""
     
     answer = query_gemini(prompt)
-    return {"refined_query":query_embedding, "chunks": chunks, "answer": answer}
+    return {"answer": answer, "refined_query":query_embedding, "chunks": chunks}
 
 
 

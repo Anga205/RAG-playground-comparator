@@ -9,9 +9,7 @@ const Home = () => {
 
     return (
         uploaded ? 
-            <QueryPage 
-                PDFmd5sum={PDFmd5sum}
-            />:
+            <QueryPage />:
             <UploadPage
                 PDFmd5sum={PDFmd5sum}
                 setPDFmd5sum={setPDFmd5sum}

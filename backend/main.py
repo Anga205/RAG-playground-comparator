@@ -1,7 +1,8 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-import logging
+import pdf_utils, text_utils, db_utils, logging, threading, pipelines
+from fastapi import Request
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +26,32 @@ app.add_middleware(
 UPLOADS_DIR = Path("uploads_pdf")
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True) # Create the directory if it doesn't exist
 
+db_utils.reset_qdrant_collection() # Reset the Qdrant collection at startup
+pdfs_loaded = []
+processingPDF = False
+def load_pdf(name):
+    global processingPDF
+    while processingPDF:
+        logger.info("Waiting for PDF processing to finish...")
+        threading.Event().wait(1)
+    processingPDF = True
+    if name in pdfs_loaded:
+        logger.info(f"PDF {name} already loaded. Skipping.")
+        return
+    pdf_path = UPLOADS_DIR / name
+    if pdf_path.exists():
+        logger.info(f"Loading PDF: {name}")
+        pdfs_loaded.append(name)
+        base64_pdf = pdf_utils.load_pdf_as_base64(pdf_path)
+        text_from_pdf = pdf_utils.extract_pdf_text_from_base64(base64_pdf)
+        chunks = text_utils.split_text_into_chunks(text_from_pdf)
+        embeddings = text_utils.get_vector_embeddings(chunks)
+        db_utils.store_embeddings_in_qdrant(chunks, embeddings)
+        logger.info(f"PDF {name} loaded and processed successfully.")
+    else:
+        logger.warning(f"PDF file {name} does not exist in uploads directory.")
+    processingPDF = False
+
 @app.post("/upload_chunk")
 async def upload_chunk(
     file_chunk: UploadFile = File(...),
@@ -41,7 +68,6 @@ async def upload_chunk(
         logger.warning(f"Attempt to upload with invalid filename pattern: {filename}")
         raise HTTPException(status_code=400, detail="Invalid filename format or characters.")
 
-    # Sanitize filename to prevent path traversal, using only the basename
     safe_basename = Path(filename).name
     file_path = UPLOADS_DIR / safe_basename
 
@@ -51,13 +77,10 @@ async def upload_chunk(
     )
 
     try:
-        # Determine file mode: 'wb' (write binary) for the first chunk, 'ab' (append binary) for others.
         mode = "wb" if chunk_number == 0 else "ab"
         
-        # Read the content of the uploaded chunk
         chunk_content = await file_chunk.read()
 
-        # Write the chunk content to the file
         with open(file_path, mode) as f:
             f.write(chunk_content)
         
@@ -70,13 +93,13 @@ async def upload_chunk(
         logger.error(f"Unexpected error while processing chunk for {safe_basename}: {e}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
     finally:
-        # It's good practice to close the UploadFile, though FastAPI might handle it.
         await file_chunk.close()
 
     if chunk_number == total_chunks - 1:
         # This is the last chunk, the file upload is complete.
         final_size = file_path.stat().st_size if file_path.exists() else 0
         logger.info(f"File {safe_basename} uploaded successfully. Total size: {final_size} bytes.")
+        threading.Thread(target=load_pdf, args=(safe_basename,)).start()
         return {
             "message": f"File {safe_basename} uploaded successfully",
             "filename": safe_basename,
@@ -90,31 +113,42 @@ async def upload_chunk(
         }
 
 @app.post("/simple-rag")
-async def simple_rag(query: str = Form(...)):
-    """
-    Placeholder for the simple RAG endpoint.
-    This can be implemented later as per requirements.
-    """
-    print(f"Received query: {query}")
-    return {"response": f"Simple RAG endpoint is under construction. Received query: {query}"}
+async def simple_rag(request: Request):
+    data = await request.json()
+    query = data.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="Missing 'query' in request body.")
+    while processingPDF:
+        logger.info("Waiting for PDF processing to finish...")
+        threading.Event().wait(1)
+    logger.info(f"Processing query: {query}")
+    response = pipelines.vanilla_rag_pipeline(query)
+    return response
 
 @app.post("/reranker")
-async def reranker(query: str = Form(...)):
-    """
-    Placeholder for the reranker endpoint.
-    This can be implemented later as per requirements.
-    """
-    print(f"Received query for reranking: {query}")
-    return {"response": f"Reranker endpoint is under construction. Received query: {query}"}
+async def reranker(request: Request):
+    data = await request.json()
+    query = data.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="Missing 'query' in request body.")
+    while processingPDF:
+        logger.info("Waiting for PDF processing to finish...")
+        threading.Event().wait(1)
+    response = pipelines.reranker_pipeline(query)
+    return response
 
 @app.post("/self-query")
-async def self_query(query: str = Form(...)):
-    """
-    Placeholder for the self-query endpoint.
-    This can be implemented later as per requirements.
-    """
-    print(f"Received self-query: {query}")
-    return {"response": f"Self-query endpoint is under construction. Received query: {query}"}
+async def self_query(request: Request):
+    data = await request.json()
+    query = data.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="Missing 'query' in request body.")
+    while processingPDF:
+        logger.info("Waiting for PDF processing to finish...")
+        threading.Event().wait(1)
+    logger.info(f"Processing self-query: {query}")
+    response = pipelines.self_querying_pipeline(query)
+    return response
 
 @app.get("/")
 async def root():
