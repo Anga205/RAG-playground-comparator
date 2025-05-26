@@ -13,10 +13,7 @@ interface PipelineCarouselProps {
     data: Record<string, any>;
 }
 
-const BACKEND_URL =
-  process.env.NODE_ENV === "development" || process.env["dev"]
-    ? "http://localhost:8000"
-    : "https://api-rag.anga.codes";
+const BACKEND_URL = "https://api-rag.anga.codes";
 
 const PipelineCarousel = ({ data }: PipelineCarouselProps) => {
     return (

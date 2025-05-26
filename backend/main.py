@@ -28,13 +28,7 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True) # Create the directory if it does
 
 db_utils.reset_qdrant_collection() # Reset the Qdrant collection at startup
 pdfs_loaded = []
-processingPDF = False
 def load_pdf(name):
-    global processingPDF
-    while processingPDF:
-        logger.info("Waiting for PDF processing to finish...")
-        threading.Event().wait(1)
-    processingPDF = True
     if name in pdfs_loaded:
         logger.info(f"PDF {name} already loaded. Skipping.")
         return
@@ -50,7 +44,6 @@ def load_pdf(name):
         logger.info(f"PDF {name} loaded and processed successfully.")
     else:
         logger.warning(f"PDF file {name} does not exist in uploads directory.")
-    processingPDF = False
 
 @app.post("/upload_chunk")
 async def upload_chunk(
@@ -99,9 +92,14 @@ async def upload_chunk(
         # This is the last chunk, the file upload is complete.
         final_size = file_path.stat().st_size if file_path.exists() else 0
         logger.info(f"File {safe_basename} uploaded successfully. Total size: {final_size} bytes.")
-        threading.Thread(target=load_pdf, args=(safe_basename,)).start()
+        
+        # Call load_pdf directly in the main thread
+        logger.info(f"Starting PDF processing for {safe_basename} in the main thread.")
+        load_pdf(safe_basename) # Removed threading
+        logger.info(f"PDF processing for {safe_basename} completed.")
+
         return {
-            "message": f"File {safe_basename} uploaded successfully",
+            "message": f"File {safe_basename} uploaded and processed successfully",
             "filename": safe_basename,
             "size": final_size,
             "md5sum": safe_basename.replace(".pdf", "") # Assuming filename is md5sum.pdf
@@ -118,9 +116,6 @@ async def simple_rag(request: Request):
     query = data.get("query")
     if not query:
         raise HTTPException(status_code=400, detail="Missing 'query' in request body.")
-    while processingPDF:
-        logger.info("Waiting for PDF processing to finish...")
-        threading.Event().wait(1)
     logger.info(f"Processing query: {query}")
     response = pipelines.vanilla_rag_pipeline(query)
     return response
@@ -131,9 +126,6 @@ async def reranker(request: Request):
     query = data.get("query")
     if not query:
         raise HTTPException(status_code=400, detail="Missing 'query' in request body.")
-    while processingPDF:
-        logger.info("Waiting for PDF processing to finish...")
-        threading.Event().wait(1)
     response = pipelines.reranker_pipeline(query)
     return response
 
@@ -143,9 +135,6 @@ async def self_query(request: Request):
     query = data.get("query")
     if not query:
         raise HTTPException(status_code=400, detail="Missing 'query' in request body.")
-    while processingPDF:
-        logger.info("Waiting for PDF processing to finish...")
-        threading.Event().wait(1)
     logger.info(f"Processing self-query: {query}")
     response = pipelines.self_querying_pipeline(query)
     return response

@@ -3,10 +3,7 @@
 import { useState } from "react";
 import SparkMD5 from 'spark-md5';
 
-const BACKEND_URL =
-  process.env.NODE_ENV === "development" || process.env["dev"]
-    ? "http://localhost:8000"
-    : "https://api-rag.anga.codes";
+const BACKEND_URL = "https://api-rag.anga.codes";
 const UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 const MAX_TOTAL_FILE_SIZE = 100 * 1024 * 1024; // 100MB total file size limit
 
